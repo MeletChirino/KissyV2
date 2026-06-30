@@ -43,6 +43,10 @@ The bot serves the webhook on `WEBHOOK_LISTEN:WEBHOOK_PORT` (default `0.0.0.0:84
 - No `opencode.json`, `.cursorrules`, `.cursor/rules/`, or `CLAUDE.md`.
 - No Dockerfile or deploy config.
 
+## Examples
+
+- `examples/echo_bot.py` — extends `telegram_bot.bot.build_application` with a `MessageHandler` that echoes non-command text, then runs polling. Run with `PYTHONPATH=src python examples/echo_bot.py`. Same env vars as the main bot (`scripts/setup.sh` creates them).
+
 ## Conventions to settle once tooling exists
 
 - [ ] Add `README.md` with setup + run instructions.
