@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS conversations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    conversation TEXT NOT NULL,
+    status BOOLEAN NOT NULL DEFAULT 0
+);
