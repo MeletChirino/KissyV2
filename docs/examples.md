@@ -14,12 +14,13 @@ need `WEBHOOK_URL`) in `.env`.
 | [`echo_bot.py`](#echo_botpy) | Replies to any non-command text with the same text. | Webhook | No |
 | [`counter_bot.py`](#counter_botpy) | Replies with a running counter of received text messages. | Long-polling | No |
 | [`ollama_bot.py`](#ollama_botpy) | Forwards each text message to a local Ollama server and replies with the model's answer. Handles connection errors, JSON errors, timeouts, and Telegram's 4096-char limit. | Webhook | No |
+| [`db_ollama_bot.py`](#db_ollama_botpy) | Same as `ollama_bot.py` but with full per-chat conversation history persisted to SQLite. The active row is created on first message and closed by `/exit` or `/new`. | Webhook | Yes |
 | [`ollama_smoketest.py`](#ollama_smoketestpy) | One-shot CLI that posts a fixed prompt to Ollama and prints the response. No Telegram involved. | n/a | No |
 
-None of the examples write to the `conversations` table on purpose —
-they are kept DB-free to stay focused on one concept each. See
-`src/telegram_bot/db/` (when the persistence helpers land) for the
-shared insert / query code.
+The DB-related example imports `telegram_bot.db` (in
+`src/telegram_bot/db.py`), a thin wrapper around `sqlite3` that owns
+`create_active`, `append_turn`, `get_active`, `close_active`, and
+`get_transcript`.
 
 ---
 
@@ -109,6 +110,77 @@ PYTHONPATH=src python examples/ollama_bot.py
 ```
 
 Then message the bot from Telegram.
+
+## db_ollama_bot.py
+
+`ollama_bot.py` with a real persistence layer. Builds on the same
+`OllamaClient` and webhook plumbing, plus `telegram_bot.db` for
+SQLite storage.
+
+What it shows:
+
+- **Active-row lookup by `chat_id`.** Each Telegram chat has at most
+  one row with `status = 1`. First message in a chat inserts it;
+  subsequent messages reuse the same row. The lookup is indexed
+  (`idx_conversations_chat_active` on `(chat_id, status)`).
+- **Append-only transcript.** The `conversation` column stores turns
+  in the form `USER:foo\n\nSYSTEM:bar\n\n` repeated. Persisted in full
+  — we never edit history.
+- **Session control.** `/exit` and `/new` both set `status = 0` and
+  say goodbye. Next text message starts a fresh row. The handler
+  caches the active row id in `bot_data["active_rows"]` to avoid
+  hitting the DB on every turn.
+- **Context windowing.** A configurable budget
+  (`OLLAMA_CONTEXT_CHARS`, default 8000) caps how much of the stored
+  transcript is sent to Ollama per turn. The model sees the *tail* of
+  the transcript; older turns are dropped. The full transcript stays
+  in the row, so widening the budget later doesn't lose data.
+- **Ollama request shape.** Each call sends
+  `[system, ...history, current_user]`. The system prompt is fixed;
+  history is parsed back from the stored string by splitting on
+  `\n\n` and reading the `USER:` / `SYSTEM:` prefix.
+- **Same error and 4096-char handling as `ollama_bot.py`**, but with
+  one important difference: a failed Ollama call does *not* roll back
+  the row — the row is created/loaded before the call, and on error
+  we just don't append a turn. This keeps the DB consistent even if
+  Ollama flakes.
+
+Required in `.env`:
+
+```
+BOT_TOKEN=...
+WEBHOOK_URL=https://...
+OLLAMA_HOST=127.0.0.1:11434
+OLLAMA_MODEL=llama3.2
+```
+
+Optional:
+
+```
+CONVERSATIONS_DB=/path/to/conversations.db   # default: data/conversations.db
+OLLAMA_CONTEXT_CHARS=8000                    # transcript budget sent to Ollama
+```
+
+Run:
+
+```bash
+PYTHONPATH=src python examples/db_ollama_bot.py
+```
+
+Try it:
+
+1. Send any message — bot replies from Ollama.
+2. Send another — bot replies using the previous turn as context.
+3. Send `/exit` — bot says goodbye, closes the row.
+4. Send a new message — a new row is created (old transcript is
+   preserved with `status = 0`).
+
+Inspect what was stored:
+
+```bash
+sqlite3 data/conversations.db "SELECT id, chat_id, status, length(conversation) FROM conversations"
+sqlite3 data/conversations.db "SELECT conversation FROM conversations WHERE id = 1"
+```
 
 ## ollama_smoketest.py
 
