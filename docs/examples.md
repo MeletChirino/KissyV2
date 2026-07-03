@@ -15,12 +15,19 @@ need `WEBHOOK_URL`) in `.env`.
 | [`counter_bot.py`](#counter_botpy) | Replies with a running counter of received text messages. | Long-polling | No |
 | [`ollama_bot.py`](#ollama_botpy) | Forwards each text message to a local Ollama server and replies with the model's answer. Handles connection errors, JSON errors, timeouts, and Telegram's 4096-char limit. | Webhook | No |
 | [`db_ollama_bot.py`](#db_ollama_botpy) | Same as `ollama_bot.py` but with full per-chat conversation history persisted to SQLite. The active row is created on first message and closed by `/exit` or `/new`. | Webhook | Yes |
+| [`invoiceninja_bot.py`](#invoiceninja_botpy) | Wires the bot to InvoiceNinja: list clients, create an invoice for an existing client, or create a new client + invoice in one go. | Webhook | No |
 | [`ollama_smoketest.py`](#ollama_smoketestpy) | One-shot CLI that posts a fixed prompt to Ollama and prints the response. No Telegram involved. | n/a | No |
 
 The DB-related example imports `telegram_bot.db` (in
 `src/telegram_bot/db.py`), a thin wrapper around `sqlite3` that owns
 `create_active`, `append_turn`, `get_active`, `close_active`, and
 `get_transcript`.
+
+The InvoiceNinja example uses `invoiceninja.InvoiceNinjaClient` (in
+`src/invoiceninja/__init__.py`), a thin wrapper around the
+`/api/v1` REST endpoints. The current surface covers clients and
+invoices; the transport layer is shared so adding more endpoints
+later is small.
 
 ---
 
@@ -181,6 +188,64 @@ Inspect what was stored:
 sqlite3 data/conversations.db "SELECT id, chat_id, status, length(conversation) FROM conversations"
 sqlite3 data/conversations.db "SELECT conversation FROM conversations WHERE id = 1"
 ```
+
+## invoiceninja_bot.py
+
+Wires the bot to a local InvoiceNinja instance via
+`invoiceninja.InvoiceNinjaClient`. The client is built once with
+`InvoiceNinjaClient.from_env()` and stored in `bot_data`, so handlers
+just call methods on it.
+
+What it shows:
+
+- **Auth.** Reads `INVOICE_NINJA_TOKEN` first. If empty, the client
+  will log in with `IN_USER_EMAIL` / `IN_PASSWORD` on first use and
+  cache the returned token.
+- **Three target use cases:**
+  - `/clients` — calls `list_clients()` and prints `id` and `name`.
+  - `/invoice <client_id> <amount> <description…>` — calls
+    `create_invoice()` with a single line item.
+  - `/new_invoice <name> <email> <amount> <description…>` — calls
+    `create_client()` then `create_invoice()` for that client.
+- **Error handling.** All REST errors are caught as
+  `InvoiceNinjaError` and surfaced to the user with a short message;
+  the full exception is logged. Connection errors, non-2xx responses,
+  and unparseable JSON are all funneled through the same exception
+  class.
+
+Required in `.env`:
+
+```
+BOT_TOKEN=...
+WEBHOOK_URL=https://...
+INVOICE_NINJA_TOKEN=...                 # preferred
+INVOICENINJA_BASE_URL=http://localhost/ # or http://nginx/ from a sibling container
+```
+
+If you don't have a token yet, leave `INVOICE_NINJA_TOKEN` empty —
+the client will log in with `IN_USER_EMAIL` / `IN_PASSWORD` on the
+first request.
+
+Run:
+
+```bash
+PYTHONPATH=src python examples/invoiceninja_bot.py
+```
+
+Try it:
+
+```
+/clients
+/invoice 1 150.00 Consulting
+/new_invoice Acme acme@example.com 99 Setup fee
+```
+
+The `InvoiceNinjaClient` surface today is small by design. To add a
+new endpoint, call `self._request(method, path, json_body=..., params=...)`
+and return whatever shape makes sense for the caller; the existing
+`_extract_object` and `_extract_list` helpers normalize the most
+common response shapes (`{"data": {...}}`, `{"data": [{...}]}`, and
+bare lists).
 
 ## ollama_smoketest.py
 

@@ -59,6 +59,9 @@ PYTHONPATH=src python examples/counter_bot.py
 
 # Ollama + DB bot - chat with a local LLM, transcripts persisted per chat
 PYTHONPATH=src python examples/db_ollama_bot.py
+
+# InvoiceNinja bot - list clients, create invoices, etc.
+PYTHONPATH=src python examples/invoiceninja_bot.py
 ```
 
 See [`docs/examples.md`](docs/examples.md) for what each one does.
