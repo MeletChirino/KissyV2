@@ -2,6 +2,9 @@
 
 Telegram bot built with python-telegram-bot.
 
+See [`docs/01_system_architecture.md`](docs/01_system_architecture.md) for the
+overall system architecture and component responsibilities.
+
 ## Setup
 
 ```bash
