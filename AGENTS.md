@@ -2,6 +2,15 @@
 
 Repo is early-stage. This file is a stub — fill in sections below as tooling lands.
 
+Before making any changes, read [`docs/01_system_architecture.md`](docs/01_system_architecture.md)
+for the full system architecture, component responsibilities, and communication protocols.
+
+Before implementing any behavior, read [`docs/02_use_cases.md`](docs/02_use_cases.md)
+for the catalog of use cases (Telegram read/write, dialog lifecycle, notifications,
+Streamlit auth/Kanban/health, admin/abuse, data lifecycle) plus deferred cases. Each
+use case lists its main flow, alt/exception flows, security notes, and a sequence
+diagram. Behavior must conform to those flows; do not invent flows not documented there.
+
 ## Layout (verified)
 
 - Python project using the `src/` layout.

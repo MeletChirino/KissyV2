@@ -5,6 +5,12 @@ Telegram bot built with python-telegram-bot.
 See [`docs/01_system_architecture.md`](docs/01_system_architecture.md) for the
 overall system architecture and component responsibilities.
 
+See [`docs/02_use_cases.md`](docs/02_use_cases.md) for the full catalog of
+behaviors the system must implement: 36 v1 use cases (Telegram read/write,
+dialog lifecycle, notifications, Streamlit auth/Kanban/health, admin/abuse,
+data lifecycle) plus 2 deferred, each with main flow, alt/exception flows,
+security notes, and a sequence diagram.
+
 ## Setup
 
 ```bash
