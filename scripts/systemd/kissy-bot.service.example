@@ -1,0 +1,49 @@
+# systemd unit example for the Kissy bot (MVP).
+#
+# This file is an EXAMPLE. To enable it:
+#   1. Copy it to /etc/systemd/system/kissy-bot.service
+#   2. Edit the placeholders below (User, WorkingDirectory, ExecStart).
+#   3. sudo systemctl daemon-reload
+#   4. sudo systemctl enable --now kissy-bot
+#   5. sudo journalctl -u kissy-bot -f   # follow logs
+#
+# Notes for the Debian Proxmox box:
+# - Run the bot as a dedicated unprivileged user (e.g. 'kissy'). Do NOT
+#   run as root. The user needs read+write access to the repo (so it can
+#   read .env and write to data/ for the SQLite database).
+# - WorkingDirectory must point at the repo checkout.
+# - ExecStart uses `uv run` so you do NOT need to activate the venv
+#   manually. The Environment= line passes through the user's PATH so
+#   `uv` is found.
+# - Restart=on-failure with a short delay is fine; the bot is stateless
+#   across restarts (all state lives in SQLite + Ninja).
+
+[Unit]
+Description=Kissy v2 Telegram bot
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=kissy
+Group=kissy
+WorkingDirectory=/opt/kissyv2
+Environment="PATH=/home/kissy/.local/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/kissy/.local/bin/uv run python -m telegram_bot
+Restart=on-failure
+RestartSec=5
+# If your .env lives in a different location, point PYTHONPATH or use a
+# EnvironmentFile= directive. The bot reads .env from the current working
+# directory by default; with WorkingDirectory above that is the repo root.
+
+# Hardening (adjust if it breaks your debug workflow).
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/kissyv2/data
+# /etc/systemd, /proc, /sys are needed; the rest of the filesystem is
+# read-only under ProtectSystem=strict.
+
+[Install]
+WantedBy=multi-user.target

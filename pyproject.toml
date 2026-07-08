@@ -1,0 +1,83 @@
+[project]
+name = "kissyv2"
+version = "0.1.0"
+description = "Telegram bot assistant for a small custom sewing and embroidery workshop."
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "Proprietary" }
+authors = [{ name = "Kissy v2 owner" }]
+# Runtime deps are kept minimal in Session 0.1. We will add httpx, apscheduler,
+# pydantic, etc. in later sessions as the corresponding code lands.
+dependencies = [
+    "python-telegram-bot[webhooks]>=21.0",
+    "python-dotenv>=1.0",
+]
+
+[dependency-groups]
+# `uv sync --group dev` installs these. `uv sync` installs both runtime + dev.
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "respx>=0.21",
+    "freezegun>=1.5",
+    "ruff>=0.6",
+    "mypy>=1.10",
+    "types-python-dotenv>=1.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/telegram_bot"]
+
+# --- pytest --------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+]
+
+# --- ruff ----------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+# Conservative starter set; we will tune as the codebase grows.
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # bugbear (common pitfalls)
+    "UP",  # pyupgrade (modern syntax)
+]
+ignore = [
+    "E501",  # line length is enforced by the formatter, not the linter
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["B"]  # tests can use asserts and mutation freely
+
+# --- mypy ----------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_any_unimported = false
+no_implicit_optional = true
+check_untyped_defs = true
+ignore_missing_imports = true  # third-party libs without stubs; revisit per-lib
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
